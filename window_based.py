@@ -3,6 +3,13 @@ import cv2
 import numpy as np
 
 
+def cosine_similarity(x, y):
+    """Compute the cosine similarity between two vectors"""
+    num = np.dot(x, y)
+    den = np.linalg.norm(x) * np.linalg.norm(y)
+    return num / den
+
+
 def read_and_convert(func):
     @functools.wraps(func)
     def wrapper(image_path1, image_path2, *args, **kwargs):
@@ -37,7 +44,7 @@ def window_based(
     # Initialize the difference image
     depth = np.zeros(img1.shape, dtype=np.uint8)
     scale = 3
-    max_value = 255 if cost_name == "l1" else 255 ** 2
+    max_value = 255 if cost_name == "l1" else 255**2
 
     kernel_half = int((kernel_size - 1) / 2)
 
@@ -78,6 +85,51 @@ def window_based(
 
     return depth
 
+@read_and_convert
+def window_based_cosine(
+    img1, img2, disparity_range=16, kernel_size=5, saving=True
+):
+    """Window-based comparison of two images with cosine similarity"""
+
+    # Check if the images have the same shape
+    if img1.shape != img2.shape:
+        raise ValueError("Images must have the same shape")
+
+    # Initialize the difference image
+    depth = np.zeros(img1.shape, dtype=np.uint8)
+    scale = 3
+
+    kernel_half = int((kernel_size - 1) / 2)
+
+    for y in range(kernel_half, img1.shape[0] - kernel_half):
+        for x in range(kernel_half, img1.shape[1] - kernel_half):
+            max_similarity = -1
+            best_disparity = 0
+
+            for d in range(disparity_range):
+                k = x - d
+                cost = -1
+                if (k - kernel_half) > 0:
+                    wp = img1[y - kernel_half : y + kernel_half + 1, x - kernel_half : x + kernel_half + 1]
+                    wpd = img2[y - kernel_half : y + kernel_half + 1, k - kernel_half : k + kernel_half + 1]
+
+                    wp_flat = wp.flatten()
+                    wpd_flat = wpd.flatten()
+
+                    cost = cosine_similarity(wp_flat, wpd_flat)
+
+                if cost > max_similarity:
+                    max_similarity = cost
+                    best_disparity = d
+
+            depth[y, x] = best_disparity * scale
+    if saving:
+        print("Saving result...")
+        cv2.imwrite(f"./results/windows_based_cosine.png", depth)
+        cv2.imwrite(
+            f"./results/windows_based_cosine_color.png",
+            cv2.applyColorMap(depth, cv2.COLORMAP_JET),
+        )
 
 window_based_l1 = functools.partial(window_based, cost_name="l1")
 window_based_l2 = functools.partial(window_based, cost_name="l2")
@@ -88,5 +140,6 @@ if __name__ == "__main__":
     disparity_range = 64
     kernel_size = 3
 
-    window_based_l1(left_image, right_image, disparity_range, kernel_size)
-    window_based_l2(left_image, right_image, disparity_range, kernel_size)
+    # window_based_l1(left_image, right_image, disparity_range, kernel_size)
+    # window_based_l2(left_image, right_image, disparity_range, kernel_size)
+    window_based_cosine(left_image, right_image, disparity_range, kernel_size)
