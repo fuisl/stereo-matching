@@ -84,7 +84,7 @@ window_based_l2 = functools.partial(window_based, cost_name="l2")
 
 if __name__ == "__main__":
     left_image = "./data/Aloe/Aloe_left_1.png"
-    right_image = "./data/Aloe/Aloe_right_1.png"
+    right_image = "./data/Aloe/Aloe_right_2.png"
     disparity_range = 64
     kernel_size = 3
 
